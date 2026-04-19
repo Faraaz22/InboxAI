@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.env
+.env.*
+*.log
+coverage
+test
+README.md
+PROJECT_NOTES.md
+docker-compose.yml
+smtp-test.js
