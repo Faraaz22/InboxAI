@@ -13,32 +13,52 @@ import { GmailModule } from './modules/gmail/gmail.module';
     // Makes .env available everywhere
     ConfigModule.forRoot({ isGlobal: true }),
 
-    // Database connection
+    // Database connection — prefers DATABASE_URL (Neon, Fly, etc.); falls back to split vars for local docker-compose
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get('DB_HOST'),
-        port: config.get<number>('DB_PORT'),
-        username: config.get('DB_USERNAME'),
-        password: config.get('DB_PASSWORD'),
-        database: config.get('DB_NAME'),
-        autoLoadEntities: true,    // auto-registers ORM entities
-        synchronize: true,         // auto-creates tables in dev (disable in prod!)
-      }),
+      useFactory: (config: ConfigService) => {
+        const url = config.get<string>('DATABASE_URL');
+        const base = {
+          autoLoadEntities: true,
+          synchronize: true, // auto-creates tables in dev (disable in prod!)
+        } as const;
+        if (url) {
+          return {
+            type: 'postgres',
+            url,
+            ssl: /neon\.tech|amazonaws\.com|render\.com/.test(url)
+              ? { rejectUnauthorized: false }
+              : false,
+            ...base,
+          };
+        }
+        return {
+          type: 'postgres',
+          host: config.get('DB_HOST'),
+          port: config.get<number>('DB_PORT'),
+          username: config.get('DB_USERNAME'),
+          password: config.get('DB_PASSWORD'),
+          database: config.get('DB_NAME'),
+          ...base,
+        };
+      },
     }),
 
-    // Redis queue connection
+    // Redis queue connection — prefers REDIS_URL (Upstash rediss://); falls back to host/port for local
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        redis: {
-          host: config.get('REDIS_HOST'),
-          port: config.get<number>('REDIS_PORT'),
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const url = config.get<string>('REDIS_URL');
+        if (url) return { redis: url };
+        return {
+          redis: {
+            host: config.get('REDIS_HOST'),
+            port: config.get<number>('REDIS_PORT'),
+          },
+        };
+      },
     }),
     ScheduleModule.forRoot(),
     EmailModule,

@@ -9,6 +9,9 @@ on:
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./inboxai-backend
     steps:
       - uses: actions/checkout@v4
 
@@ -16,6 +19,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: inboxai-backend/package-lock.json
 
       - run: npm ci
       - run: npx tsc --noEmit
@@ -44,10 +48,21 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./inboxai-backend
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: docker
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only --config ./inboxai-backend/fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
