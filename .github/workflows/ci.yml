@@ -12,6 +12,7 @@ jobs:
     defaults:
       run:
         working-directory: ./inboxai-backend
+
     steps:
       - uses: actions/checkout@v4
 
@@ -26,12 +27,13 @@ jobs:
       - run: npm run build
 
   docker:
-    # Only push images on main — PRs just verify the build works
     needs: lint-and-build
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       packages: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -51,18 +53,7 @@ jobs:
           context: ./inboxai-backend
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: |
-  ghcr.io/${{ github.repository_owner }}/inboxai:latest
-  ghcr.io/${{ github.repository_owner }}/inboxai:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/inboxai:latest
+            ghcr.io/${{ github.repository_owner }}/inboxai:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  deploy:
-    needs: docker
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only --config ./inboxai-backend/fly.toml
-        env:
-          
