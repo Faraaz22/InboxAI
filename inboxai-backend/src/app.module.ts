@@ -45,17 +45,33 @@ import { GmailModule } from './modules/gmail/gmail.module';
       },
     }),
 
-    // Redis queue connection — prefers REDIS_URL (Upstash rediss://); falls back to host/port for local
+    // Redis queue connection — prefers REDIS_URL (Upstash rediss://); falls back to host/port for local.
+    // BullMQ/Bull need maxRetriesPerRequest:null (blocking commands) and enableReadyCheck:false
+    // so managed Redis (Upstash) doesn't hang on the initial INFO probe.
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
+        const tuning = { maxRetriesPerRequest: null, enableReadyCheck: false } as const;
         const url = config.get<string>('REDIS_URL');
-        if (url) return { redis: url };
+        if (url) {
+          const u = new URL(url);
+          return {
+            redis: {
+              host: u.hostname,
+              port: Number(u.port || 6379),
+              username: u.username || undefined,
+              password: u.password ? decodeURIComponent(u.password) : undefined,
+              tls: u.protocol === 'rediss:' ? {} : undefined,
+              ...tuning,
+            },
+          };
+        }
         return {
           redis: {
             host: config.get('REDIS_HOST'),
             port: config.get<number>('REDIS_PORT'),
+            ...tuning,
           },
         };
       },
