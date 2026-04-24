@@ -15,8 +15,19 @@ export class EmailRepositoryImpl implements IEmailRepository {
 
   async save(email: Email): Promise<Email> {
     const ormEntity = this.ormRepo.create(EmailMapper.toOrm(email));
-    const saved = await this.ormRepo.save(ormEntity);
-    return EmailMapper.toDomain(saved);
+    try {
+      const saved = await this.ormRepo.save(ormEntity);
+      return EmailMapper.toDomain(saved);
+    } catch (err: any) {
+      
+      if (err?.code === '23505' && email.gmailMessageId) {
+        const existing = await this.ormRepo.findOne({
+          where: { gmailMessageId: email.gmailMessageId },
+        });
+        if (existing) return EmailMapper.toDomain(existing);
+      }
+      throw err;
+    }
   }
 
   async findById(id: string): Promise<Email | null> {
