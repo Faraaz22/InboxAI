@@ -8,7 +8,7 @@ export interface WorkflowCondition {
   value: string;              // e.g. "invoice"
 }
 
-export type ActionType = 'log' | 'webhook' | 'send_email';
+export type ActionType = 'log' | 'webhook' | 'send_email' | 'create_task';
 
 export interface WorkflowAction {
   type: ActionType;
