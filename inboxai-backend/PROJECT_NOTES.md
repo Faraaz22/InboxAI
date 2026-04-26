@@ -1068,3 +1068,55 @@ These are the kinds of rules a user would POST to `/workflows`. Each combines **
 
   A frontend would just be a nicer wrapper for the POST above. Buttons like "Create rule" → dropdowns for
    field, operator, value → Save → same API call under the hood. The conditions logic doesn't change.
+
+   Gmail push → fetch email → save to DB → AI classifies → engine queries                            
+     workflows where trigger='email_received' → for each, check conditions →
+     if all conditions pass, run its actions (log / send_email / webhook / create_task)             
+                  
+  So you must add rule rows to the workflows table. Each row is { trigger, conditions[], actions[]
+  }.
+
+  What a rule looks like
+
+  - trigger — only one option exists today: email_received (always use this)
+  - conditions — array of { field, operator, value } checks. ALL must pass. Empty [] = match every
+  email.
+    - field: type (the AI label), from, subject, body
+    - operator: equals, not_equals, contains
+  - actions — array of things to do when matched
+    - log — print a line (useful for debugging)
+    - send_email — send via Resend (config: { to, subject, template })
+    - webhook — POST to a URL
+    - create_task — insert a row into the tasks table
+
+  The AI can label as: job_opportunity, invoice, transactional, personal, promotional, general, spam
+   (check ai.service.ts:72 for the full list).
+
+  Useful rules to add
+
+  # 1) Forward job opportunities to your alt inbox
+  curl -X POST https://inboxai-mse2.onrender.com/workflows -H "Content-Type: application/json" -d '{
+    "name": "Forward job opps",
+    "trigger": "email_received",
+    "conditions": [{ "field": "type", "operator": "equals", "value": "job_opportunity" }],
+    "actions": [{ "type": "send_email", "config": {
+      "to": "faraazmahmood0@gmail.com",
+      "subject": "New job: {{subject}}",
+      "template": "From: {{from}}"
+    }}],
+    "isActive": true
+  }'
+
+  # 2) Auto-create a task for every invoice
+  curl -X POST https://inboxai-mse2.onrender.com/workflows -H "Content-Type: application/json" -d '{
+    "name": "Track invoices",
+    "trigger": "email_received",
+    "conditions": [{ "field": "type", "operator": "equals", "value": "invoice" }],
+    "actions": [{ "type": "create_task", "config": {
+      "title": "Pay invoice from {{from}}",
+      "description": "{{subject}}"
+    }}],
+    "isActive": true
+  }'
+
+  # 3) Already exists — keep "Log everything" with empty conditions for debugging

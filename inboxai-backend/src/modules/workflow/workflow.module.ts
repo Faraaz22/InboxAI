@@ -14,6 +14,7 @@ import { LogAction } from './application/actions/log.action';
 import { WebhookAction } from './application/actions/webhook.action';
 import { SendEmailAction } from './application/send-email.action';
 import { CreateTaskAction } from './application/actions/create-task.action';
+import { WorkflowSeeder } from './infrastructure/workflow.seeder';
 
 @Module({
   imports: [
@@ -39,6 +40,8 @@ import { CreateTaskAction } from './application/actions/create-task.action';
     ActionLogService,
     // Repository
     { provide: WORKFLOW_REPOSITORY, useClass: WorkflowRepositoryImpl },
+    // Seeder — inserts default rules if table is empty
+    WorkflowSeeder,
   ],
   exports: [WorkflowEngineService],
 })
